@@ -1,0 +1,17 @@
+# 仿真缓存和工具输出
+.digital-ide/
+.Xil/
+xsim.dir/
+*.log
+*.jou
+*.wdb
+*.pb
+
+# 测试脚本生成的材料
+/tests/
+
+# 个人设置备份
+/backup/settings.json
+
+# 打包文件
+*.zip

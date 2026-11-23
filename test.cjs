@@ -1,0 +1,25 @@
+const fs = require('fs');
+const path = require('path');
+const assert = require('assert');
+const {runSimulation, packageOrder} = require('./stage/out/xsim-runner');
+const root = path.join(__dirname, 'tests');
+fs.mkdirSync(root, {recursive:true});
+fs.writeFileSync(path.join(root,'defs.sv'), 'package defs; parameter int WIDTH=8; endpackage\n');
+fs.writeFileSync(path.join(root,'dut.sv'), 'module dut(input logic [defs::WIDTH-1:0] a, output logic [defs::WIDTH-1:0] y); assign y=a+1; endmodule\n');
+fs.writeFileSync(path.join(root,'tb.sv'), '`timescale 1ns/1ps\nmodule tb; import defs::*; logic [WIDTH-1:0] a,y; dut u(a,y); initial begin a=7; #1; if(y!==8) $fatal(1,"wrong result"); $display("DEPENDENCY_PACKAGE_PASS"); $finish; end endmodule\n');
+fs.writeFileSync(path.join(root,'bad.sv'), 'module bad; initial begin THIS IS INVALID; end endmodule\n');
+const files = packageOrder([path.join(root,'dut.sv'),path.join(root,'tb.sv')],[root]);
+assert(files.indexOf(path.join(root,'defs.sv')) < files.indexOf(path.join(root,'dut.sv')));
+const opts = {bin:'D:/Vivado/2025.2/Vivado/bin', timeoutMs:180000};
+const logs=[]; const log=t=>{logs.push(t);process.stdout.write(t);};
+(async()=>{
+ await runSimulation({file:'D:/axi_lite_verify/tb/hello.sv',top:'hello',workspace:root,dependencies:[]}, opts, log);
+ assert(logs.join('').includes('HELLO_PASS'));
+ logs.length=0;
+ await runSimulation({file:path.join(root,'tb.sv'),top:'tb',workspace:root,dependencies:[path.join(root,'dut.sv')]}, opts, log);
+ assert(logs.join('').includes('DEPENDENCY_PACKAGE_PASS'));
+ logs.length=0;
+ await assert.rejects(runSimulation({file:path.join(root,'bad.sv'),top:'bad',workspace:root,dependencies:[]},opts,log),/xvlog.bat failed/);
+ assert(!logs.join('').includes('xelab.bat'));
+ console.log('\nALL BACKEND TESTS PASSED');
+})().catch(e=>{console.error(e);process.exitCode=1;});
